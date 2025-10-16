@@ -1,7 +1,8 @@
 #include <iostream>
 #include <asio.hpp>
-#include <functional>
+#include <memory>
 #include "server.h"
+#include "session.h" // Include the Session header file
 
 // for me: this is a member initializer list. a constructor. essential for oop.
 Server::Server(short port)
@@ -13,28 +14,33 @@ Server::Server(short port)
 
 // implement the start function from server.h
 void Server::Start() {
-	// create the callback 
-	auto callback = std::bind(&Server::OnAccept, this, std::placeholders::_1, std::placeholders::_2);
-
-	m_acceptor.async_accept(callback);
+	DoAccept();
 
 	std::cout << "Server started. Waiting for connections...\n";
 	m_io_context.run();
 	std::cout << "Server stopped.\n";
+}
 
+void Server::DoAccept() {
+	m_acceptor.async_accept(
+		[this](const asio::error_code& ec, asio::ip::tcp::socket socket) {
+			OnAccept(ec, std::move(socket));
+		}
+	);
 }
 
 // define what the callback does
 void Server::OnAccept(const asio::error_code& ec, asio::ip::tcp::socket socket) {
-	if (ec) {
+	if (!ec) {
+		std::cout << "Client connected! Remote endpoint: " << socket.remote_endpoint() << std::endl;
+		
+		// create a new session for this client and start it
+		std::make_shared<Session>(std::move(socket))->Start();
+	}
+	else {
 		std::cerr << "Accept error: " << ec.message() << std::endl;
-		return;
 	}
 
-	std::cout << "New accept operation in progress...\n";
-	auto callback = std::bind(&Server::OnAccept, this, std::placeholders::_1, std::placeholders::_2);
-	m_acceptor.async_accept(callback);
-
-	std::cout << "Client connected! Remote endpoint: " << socket.remote_endpoint() << std::endl;
+	DoAccept();
 }
 
