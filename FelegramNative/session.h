@@ -1,19 +1,26 @@
 #pragma once
-#include <memory>
+
 #include <asio.hpp>
-#include <iostream>
+#include <memory>
+#include <string> // Include for std::string
 
-class Session : public std::enable_shared_from_this<Session> {
+// Forward declaration to avoid circular dependency
+class Server;
+
+class Session : public std::enable_shared_from_this<Session>
+{
 public:
-	Session(asio::ip::tcp::socket socket);
-
-	void Start();
+    // Modified constructor to accept a reference to the server
+    Session(asio::ip::tcp::socket socket, Server& server);
+    void Start();
+    // This method will be called by the Server to deliver a message to this client
+    void Deliver(const std::shared_ptr<const std::string>& msg);
 
 private:
-	void DoRead();
-	void DoWrite(std::size_t length);
+    void DoRead();
 
-	asio::ip::tcp::socket m_socket;
-	enum { max_length = 1024 };
-	char m_data[max_length];
+    asio::ip::tcp::socket m_socket;
+    Server& m_server; // Reference to the server
+    enum { max_length = 1024 };
+    char m_data[max_length];
 };
